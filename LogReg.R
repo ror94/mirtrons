@@ -8,9 +8,7 @@ LDA=LR
 DT=LR
 SVM=LR
 NB=LR
-classes = replace(pcdata_ml$class, with(pcdata_ml, which(class == "1")), "mirtron")
-classes = replace(classes, which(classes == "0"), "canonical")
-folds = generateCVRuns(classes, ntimes = 1, nfold = itnumber, stratified = TRUE)
+folds = generateCVRuns(Z$class, ntimes = 1, nfold = itnumber, stratified = TRUE)
 for (i in 1:length(folds[[1]])){
 
   testing_data=Z[folds[[1]][[i]],]
@@ -72,6 +70,6 @@ SVM=colSums(SVM)/itnumber
 NB=colSums(NB)/itnumber
 Results=rbind(LR,RF,LDA,DT,SVM,NB)
 rownames(Results)=c("Logistic Regression", "Random Forest", "Linear Discriminant Analysis","Decision Tree", "Support Vector machines","Naive Bayes")
-results=list(Results,rfm,svm_model,X)
+results=list(Results,rfm,svm_model,folds)
 return(results)
 }

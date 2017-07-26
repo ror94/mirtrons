@@ -1,8 +1,8 @@
 rm(list=ls())
 if (Sys.info()[[1]]=="Windows"){
-  setwd("D:/BACKUP/Workspace/mirtrons")
+  setwd("D:/BACKUP/Workspace/R/Mirtrons")
 } else{
-  setwd("~/Workspace/R/mirtrons")
+  setwd("~/Workspace/R/Mirtrons")
 }
 library(Boruta) #rf importance
 library(agricolae) #tukey test
@@ -181,8 +181,14 @@ print(g2)
 # 3d PCA
 library(rgl)
 colors = replace(pcdata_ml$class, with(pcdata_ml, which(class == 1)), "blue")
-colors = replace(colors,which(colors== 0), "red")
+colors = replace(colors,which(colors== 0), "green")
+coords <- NULL
+for (i in 1:nrow(pca$rotation)) {
+  coords <- rbind(coords, rbind(c(0,0,0),pca$rotation[i,1:3]))
+}
 plot3d(pca$x[,1:3], col=colors, size = 5)
+text3d(pca$rotation[,1:3]*10, texts=rownames(pca$rotation), col="red")
+lines3d(coords*10, col="red", lwd=2)
 
 ####################################################################################################
 # Classification
@@ -211,7 +217,8 @@ print(Singlef)
 
 ####################################################################################################
 #Boruta & RFE
-
+classes = replace(pcdata_ml$class, with(pcdata_ml, which(class == "1")), "mirtron")
+classes = replace(classes, which(classes == "0"), "canonical")
 svmProfile <-rfe(pcdata, as.factor(classes),sizes=c(1:16),
                 rfeControl = rfeControl(functions = caretFuncs,
                                         verbose = FALSE, method = "cv", number = 3),
