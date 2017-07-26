@@ -198,7 +198,7 @@ cat("\n1x5-fold Cross-validation classification\n")
 x=LogReg(pcdata_ml, itnumber=10)
 print(x[[1]])
 pred=predict(x[[3]],test_mirna) #predict on svm model
-table(pred)
+print(table(pred))
 mean(as.double(pred)-1)
 
 ####################################################################################################
@@ -241,7 +241,7 @@ cat("\n1x5-fold Cross-validation classification\n")
 x=LogReg(top_feat, itnumber=10)
 print(x[[1]])
 pred=predict(x[[3]],test_mirna) #predict on svm model
-table(pred)
+print(table(pred))
 mean(as.double(pred)-1)
 
 
