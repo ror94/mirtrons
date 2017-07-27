@@ -110,16 +110,14 @@ canonical_mirna$mature5pposition=NULL
 canonical_mirna$mature5p_U=NULL
 canonical_mirna$mature3p_U=NULL
 canonical_mirna$hairpin_U=NULL
+canonical_mirna$interarm_U=NULL
 
 mirtron_mirna$mature3pposition=NULL
 mirtron_mirna$mature5pposition=NULL
 mirtron_mirna$mature5p_U=NULL
 mirtron_mirna$mature3p_U=NULL
 mirtron_mirna$hairpin_U=NULL
-
-random_mirna$mature5p_U=NULL
-random_mirna$mature3p_U=NULL
-random_mirna$hairpin_U=NULL
+mirtron_mirna$interarm_U=NULL
 
 pcdata_ml=rbind(mirtron_mirna,canonical_mirna)
 
@@ -141,6 +139,7 @@ test_mirna$mature5pposition=NULL
 test_mirna$mature5p_U=NULL
 test_mirna$mature3p_U=NULL
 test_mirna$hairpin_U=NULL
+test_mirna$interarm_U=NULL
 
 
 # Added test

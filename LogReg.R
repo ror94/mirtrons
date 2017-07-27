@@ -10,11 +10,16 @@ SVM=LR
 NB=LR
 folds = generateCVRuns(Z$class, ntimes = 1, nfold = itnumber, stratified = TRUE)
 for (i in 1:length(folds[[1]])){
+  
+  Z$interarm_U = NULL
+
 
   testing_data=Z[folds[[1]][[i]],]
   learning_data=Z[-folds[[1]][[i]],]
   check=testing_data$class
   testing_data$class=NULL
+  
+  
   
   # LOGISTIC REGRESSION
   model=glm(class~.,data=learning_data, family="binomial")
