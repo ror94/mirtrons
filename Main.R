@@ -83,12 +83,9 @@ source('mirnaplots.R')
 #canonicalplots_mirna=mirnaplots(canonical_mirna)
 #testplots_mirna=mirnaplots(test_mirna)
 
-
-
-
 P.values=data.frame(matrix(,nrow=dim(canonical_mirna)[2]-1,ncol=5))
 sign=c('Not Significant','Significant')
-for (i in 1:(dim(canonical_mirna)[2]-1)){
+for (i in 1:(ncol(canonical_mirna)-1)){
   P.values[i,1]=wilcox.test(mirtron_mirna[,i],canonical_mirna[,i],alternative="two.sided")$p.value
   P.values[i,2]=ks.test(mirtron_mirna[,i],canonical_mirna[,i],alternative="two.sided")$p.value
   
@@ -126,11 +123,9 @@ random_mirna$hairpin_U=NULL
 
 pcdata_ml=rbind(mirtron_mirna,canonical_mirna)
 
-
-
 #pairs.panels(pcdata_ml)
 # PCA canonical vs mirtron
-pcdata=pcdata_ml[,-17]
+pcdata=pcdata_ml[,-ncol(pcdata_ml)]
 pca=prcomp(pcdata, retx=TRUE, center=TRUE, scale=TRUE)
 labels=factor(c(rep('mirtron',dim(mirtron_mirna)[1]),rep('canonical',dim(pcdata)[1]-dim(mirtron_mirna)[1])),levels=c('mirtron','canonical'))
 g <- ggbiplot(pca, obs.scale = 1, var.scale = 1, 
@@ -149,7 +144,7 @@ test_mirna$hairpin_U=NULL
 
 
 # Added test
-pcdata5=rbind(pcdata,test_mirna[,-17])
+pcdata5=rbind(pcdata,test_mirna[,-ncol(test_mirna)])
 pca5=pca
 pca5$x=scale(pcdata5, pca$center, pca$scale) %*% pca$rotation
 rownames(pca5$x)=1:dim(pcdata5)[1]
@@ -219,7 +214,7 @@ print(Singlef)
 #Boruta & RFE
 classes = replace(pcdata_ml$class, with(pcdata_ml, which(class == "1")), "mirtron")
 classes = replace(classes, which(classes == "0"), "canonical")
-svmProfile <-rfe(pcdata, as.factor(classes),sizes=c(1:16),
+svmProfile <-rfe(pcdata, as.factor(classes),sizes=c(1:(ncol(canonical_mirna)-1)),
                 rfeControl = rfeControl(functions = caretFuncs,
                                         verbose = FALSE, method = "cv", number = 3),
                 method = "svmRadial")
@@ -227,7 +222,7 @@ plot(svmProfile)
 predictors(svmProfile)
 plot(svmProfile, type=c("g", "o"))
 
-imp2=getImpRfGini(pcdata_ml[,-17],pcdata_ml$class)
+imp2=getImpRfGini(pcdata_ml[,-(ncol(canonical_mirna))],pcdata_ml$class)
 ord=order(-as.double(imp2))
 Imp=data.frame(RFBoruta=names(imp2)[order(-as.double(imp2))][1:length(predictors(svmProfile))],RFrfe = predictors(svmProfile))
 cat("\nImportance by random forest using Boruta package and RFE\n")
