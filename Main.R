@@ -22,6 +22,7 @@ library(e1071) #svm
 library(caret) # RFE
 library(mlr)
 library(TunePareto) # stratified
+library(MLmetrics) #cnfusion matrxi
 
 source("loopscount.R")
 source("mirna_features.R")
@@ -218,21 +219,21 @@ classes = replace(classes, which(classes == "0"), "canonical")
 
 #library(caret) # RFE
 mcc <- function(data, lev = NULL, model = NULL) {
-  f1_val <- F1_Score(y_pred = data$pred, y_true = data$obs, positive = lev[1])
+  #f1_val <- F1_Score(y_pred = data$pred, y_true = data$obs, positive = lev[1])
   conf_mat = ConfusionMatrix(y_pred = data$pred, y_true = data$obs)
   TP = conf_mat[4] 
   TN = conf_mat[1]
   FP = conf_mat[3]
   FN = conf_mat[2]
   mcc_val = (TP*TN-FP*FN)/(sqrt((TP+FP)*(TP+FN)*(TN+FP)*(TN+FN)))
-  c(F1 = f1_val)
+  #c(F1 = f1_val)
   c(MCC = mcc_val)
 }
 caretFuncs$summary <- mcc
 svmProfile <-rfe(pcdata, as.factor(classes),sizes=c(1:21),
                 rfeControl = rfeControl(functions = caretFuncs,
                 verbose = FALSE),#, method = "cv", number = 5, index = folds),
-                trControl = trainControl(method = "cv", number = 5, index = folds, classProbs = TRUE),
+                trControl = trainControl(method = "cv", number = 5, index = folds[[1]], classProbs = TRUE),
                 method = "svmRadial", metric = "MCC")
 plot(svmProfile)
 predictors(svmProfile)
