@@ -213,10 +213,12 @@ print(Singlef)
 #Boruta & RFE
 classes = replace(pcdata_ml$class, with(pcdata_ml, which(class == "1")), "mirtron")
 classes = replace(classes, which(classes == "0"), "canonical")
-svmProfile <-rfe(pcdata, as.factor(classes),sizes=c(1:(ncol(canonical_mirna)-1)),
+#caretFuncs$summary <- twoClassSummary
+library(caret) # RFE
+svmProfile <-rfe(pcdata, as.factor(classes),sizes=c(1:20),
                 rfeControl = rfeControl(functions = caretFuncs,
-                                        verbose = FALSE, method = "cv", number = 3),
-                method = "svmRadial")
+                verbose = FALSE, method = "cv", number = 3),
+                method = "svmRadial")#, metric = "ROC")
 plot(svmProfile)
 predictors(svmProfile)
 plot(svmProfile, type=c("g", "o"))
