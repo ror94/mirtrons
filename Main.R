@@ -186,10 +186,12 @@ lines3d(coords*10, col="red", lwd=2)
 
 ####################################################################################################
 # Classification
-
+itnumber = 5
+set.seed(27)
+folds = generateCVRuns(pcdata_ml$class, ntimes = 1, nfold = itnumber, stratified = TRUE)
 source("LogReg.R")
 cat("\n1x5-fold Cross-validation classification\n")
-x=LogReg(pcdata_ml, itnumber=10)
+x=LogReg(pcdata_ml, folds)
 print(x[[1]])
 pred=predict(x[[3]],test_mirna) #predict on svm model
 print(table(pred))
@@ -200,7 +202,7 @@ print(mean(as.double(pred)-1))
 
 Singlef=data.frame()
 for (i in 1:(dim(pcdata_ml)[2]-1)){
-  singlef=LogReg(pcdata_ml[,c(i,dim(pcdata_ml)[2])],itnumber = 10)
+  singlef=LogReg(pcdata_ml[,c(i,dim(pcdata_ml)[2])],folds)
   Singlef=rbind(Singlef,singlef[[1]][5,])
 }
 rownames(Singlef)=colnames(pcdata)
@@ -229,8 +231,8 @@ mcc <- function(data, lev = NULL, model = NULL) {
 caretFuncs$summary <- mcc
 svmProfile <-rfe(pcdata, as.factor(classes),sizes=c(1:21),
                 rfeControl = rfeControl(functions = caretFuncs,
-                verbose = FALSE), #method = "cv", number = 5),
-                trControl = trainControl(method = "cv", number = 5, classProbs = TRUE),
+                verbose = FALSE),#, method = "cv", number = 5, index = folds),
+                trControl = trainControl(method = "cv", number = 5, index = folds, classProbs = TRUE),
                 method = "svmRadial", metric = "MCC")
 plot(svmProfile)
 predictors(svmProfile)
@@ -255,7 +257,7 @@ print(Imp)
 
 top_feat = cbind(pcdata_ml[,predictors(svmProfile)],class = pcdata_ml$class)
 cat("\n1x5-fold Cross-validation classification\n")
-x1=LogReg(top_feat, itnumber=10)
+x1=LogReg(top_feat, folds)
 print(x1[[1]])
 pred=predict(x1[[3]],test_mirna) #predict on svm model
 print(table(pred))
