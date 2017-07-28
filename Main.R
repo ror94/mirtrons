@@ -200,7 +200,7 @@ print(mean(as.double(pred)-1))
 
 Singlef=data.frame()
 for (i in 1:(dim(pcdata_ml)[2]-1)){
-  singlef=LogReg(pcdata_ml[,c(i,dim(pcdata_ml)[2])],3)
+  singlef=LogReg(pcdata_ml[,c(i,dim(pcdata_ml)[2])],itnumber = 10)
   Singlef=rbind(Singlef,singlef[[1]][5,])
 }
 rownames(Singlef)=colnames(pcdata)
@@ -213,13 +213,25 @@ print(Singlef)
 #Boruta & RFE
 classes = replace(pcdata_ml$class, with(pcdata_ml, which(class == "1")), "mirtron")
 classes = replace(classes, which(classes == "0"), "canonical")
-caretFuncs$summary <- twoClassSummary
+
 #library(caret) # RFE
+mcc <- function(data, lev = NULL, model = NULL) {
+  f1_val <- F1_Score(y_pred = data$pred, y_true = data$obs, positive = lev[1])
+  conf_mat = ConfusionMatrix(y_pred = data$pred, y_true = data$obs)
+  TP = conf_mat[4] 
+  TN = conf_mat[1]
+  FP = conf_mat[3]
+  FN = conf_mat[2]
+  mcc_val = (TP*TN-FP*FN)/(sqrt((TP+FP)*(TP+FN)*(TN+FP)*(TN+FN)))
+  c(F1 = f1_val)
+  c(MCC = mcc_val)
+}
+caretFuncs$summary <- mcc
 svmProfile <-rfe(pcdata, as.factor(classes),sizes=c(1:21),
                 rfeControl = rfeControl(functions = caretFuncs,
-                verbose = FALSE, method = "cv", number = 3),
-                trControl = trainControl(method = "none", classProbs = TRUE),
-                method = "svmRadial", metric = "ROC")
+                verbose = FALSE), #method = "cv", number = 5),
+                trControl = trainControl(method = "cv", number = 5, classProbs = TRUE),
+                method = "svmRadial", metric = "MCC")
 plot(svmProfile)
 predictors(svmProfile)
 plot(svmProfile, type=c("g", "o"))
@@ -233,7 +245,7 @@ ord=order(-as.double(imp2))
 Imp=data.frame(RFBoruta=names(imp2)[order(-as.double(imp2))][1:length(predictors(svmProfile))],
                RFBorutaImp=imp2[order(-as.double(imp2))][1:length(predictors(svmProfile))],
                SVMrfe = predictors(svmProfile),
-               SVMrfeAUC = svmProfile$results$ROC[1:length(predictors(svmProfile))]
+               SVMrfeMCC = svmProfile$results$MCC[1:length(predictors(svmProfile))]
                )
 cat("\nImportance by random forest using Boruta package and RFE\n")
 print(Imp)
@@ -243,9 +255,9 @@ print(Imp)
 
 top_feat = cbind(pcdata_ml[,predictors(svmProfile)],class = pcdata_ml$class)
 cat("\n1x5-fold Cross-validation classification\n")
-x=LogReg(top_feat, itnumber=10)
-print(x[[1]])
-pred=predict(x[[3]],test_mirna) #predict on svm model
+x1=LogReg(top_feat, itnumber=10)
+print(x1[[1]])
+pred=predict(x1[[3]],test_mirna) #predict on svm model
 print(table(pred))
 print(mean(as.double(pred)-1))
 
