@@ -193,7 +193,7 @@ x=LogReg(pcdata_ml, itnumber=10)
 print(x[[1]])
 pred=predict(x[[3]],test_mirna) #predict on svm model
 print(table(pred))
-mean(as.double(pred)-1)
+print(mean(as.double(pred)-1))
 
 ####################################################################################################
 #Single feature
@@ -213,12 +213,13 @@ print(Singlef)
 #Boruta & RFE
 classes = replace(pcdata_ml$class, with(pcdata_ml, which(class == "1")), "mirtron")
 classes = replace(classes, which(classes == "0"), "canonical")
-#caretFuncs$summary <- twoClassSummary
-library(caret) # RFE
-svmProfile <-rfe(pcdata, as.factor(classes),sizes=c(1:20),
+caretFuncs$summary <- twoClassSummary
+#library(caret) # RFE
+svmProfile <-rfe(pcdata, as.factor(classes),sizes=c(1:21),
                 rfeControl = rfeControl(functions = caretFuncs,
                 verbose = FALSE, method = "cv", number = 3),
-                method = "svmRadial")#, metric = "ROC")
+                trControl = trainControl(method = "none", classProbs = TRUE),
+                method = "svmRadial", metric = "ROC")
 plot(svmProfile)
 predictors(svmProfile)
 plot(svmProfile, type=c("g", "o"))
@@ -238,7 +239,7 @@ x=LogReg(top_feat, itnumber=10)
 print(x[[1]])
 pred=predict(x[[3]],test_mirna) #predict on svm model
 print(table(pred))
-mean(as.double(pred)-1)
+print(mean(as.double(pred)-1))
 
 
 
