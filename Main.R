@@ -232,7 +232,7 @@ caretFuncs$summary <- mcc
 svmProfile <-rfe(pcdata, as.factor(classes),sizes=c(1:21),
                 rfeControl = rfeControl(functions = caretFuncs,
                 verbose = FALSE),#, method = "cv", number = 5, index = folds),
-                trControl = trainControl(method = "cv", number = 5, index = folds, classProbs = TRUE),
+                trControl = trainControl(method = "cv", number = 5, index = folds[[1]], classProbs = TRUE),
                 method = "svmRadial", metric = "MCC")
 plot(svmProfile)
 predictors(svmProfile)
