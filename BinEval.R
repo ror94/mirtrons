@@ -1,6 +1,8 @@
 BinEval <-function (df){
   pred=ROCR::prediction(df[1],df[2])
   auc=ROCR::performance(pred, "auc")
+  pred1 = ROCR::prediction(model_results, df[,2])
+  sens = ROCR::performance(pred1, "spec")
   
   
   model_results=rep(0,dim(df)[1])

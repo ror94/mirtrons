@@ -224,9 +224,17 @@ plot(svmProfile)
 predictors(svmProfile)
 plot(svmProfile, type=c("g", "o"))
 
-imp2=getImpRfGini(pcdata_ml[,-(ncol(canonical_mirna))],pcdata_ml$class)
+
+Bor = Boruta(pcdata_ml[,-(ncol(canonical_mirna))],pcdata_ml$class, getImp = getImpRfZ)
+plot(Bor)
+
+imp2=getImpRfZ(pcdata_ml[,-(ncol(canonical_mirna))],pcdata_ml$class)
 ord=order(-as.double(imp2))
-Imp=data.frame(RFBoruta=names(imp2)[order(-as.double(imp2))][1:length(predictors(svmProfile))],RFrfe = predictors(svmProfile))
+Imp=data.frame(RFBoruta=names(imp2)[order(-as.double(imp2))][1:length(predictors(svmProfile))],
+               RFBorutaImp=imp2[order(-as.double(imp2))][1:length(predictors(svmProfile))],
+               SVMrfe = predictors(svmProfile),
+               SVMrfeAUC = svmProfile$results$ROC[1:length(predictors(svmProfile))]
+               )
 cat("\nImportance by random forest using Boruta package and RFE\n")
 print(Imp)
 
