@@ -181,10 +181,9 @@ coords <- NULL
 for (i in 1:nrow(pca$rotation)) {
   coords <- rbind(coords, rbind(c(0,0,0),pca$rotation[i,1:3]))
 }
-plot3d(pca$x[,1:3], col=colors, size = 5)
+pca3 = plot3d(pca$x[,1:3], col=colors, size = 5)
 text3d(pca$rotation[,1:3]*10, texts=rownames(pca$rotation), col="red")
 lines3d(coords*10, col="red", lwd=2)
-
 ####################################################################################################
 # Classification
 itnumber = 5
@@ -233,7 +232,7 @@ caretFuncs$summary <- mcc
 svmProfile <-rfe(pcdata, as.factor(classes),sizes=c(1:21),
                 rfeControl = rfeControl(functions = caretFuncs,
                 verbose = FALSE),#, method = "cv", number = 5, index = folds),
-                trControl = trainControl(method = "cv", number = 5, index = folds[[1]], classProbs = TRUE),
+                trControl = trainControl(method = "cv", number = 1, index = folds[[1]], classProbs = TRUE),
                 method = "svmRadial", metric = "MCC")
 plot(svmProfile)
 predictors(svmProfile)
@@ -242,6 +241,8 @@ plot(svmProfile, type=c("g", "o"))
 
 Bor = Boruta(pcdata_ml[,-(ncol(canonical_mirna))],pcdata_ml$class, getImp = getImpRfZ)
 plot(Bor)
+labs = rev(names(colMeans(Bor$ImpHistory)))
+text(cex=1, x=x-.25, y=-1.25, labs, xpd=TRUE, srt=45)
 
 imp2=getImpRfZ(pcdata_ml[,-(ncol(canonical_mirna))],pcdata_ml$class)
 ord=order(-as.double(imp2))
@@ -263,8 +264,3 @@ print(x1[[1]])
 pred=predict(x1[[3]],test_mirna) #predict on svm model
 print(table(pred))
 print(mean(as.double(pred)-1))
-
-
-
-
-
