@@ -231,8 +231,8 @@ mcc <- function(data, lev = NULL, model = NULL) {
 caretFuncs$summary <- mcc
 svmProfile <-rfe(pcdata, as.factor(classes),sizes=c(1:21),
                 rfeControl = rfeControl(functions = caretFuncs,
-                verbose = FALSE),#, method = "cv", number = 5, index = folds),
-                trControl = trainControl(method = "cv", number = 1, index = folds[[1]], classProbs = TRUE),
+                verbose = FALSE, method = "cv", number = 5, index = folds[[1]]),
+                #trControl = trainControl(method = "cv", number = 1, index = folds[[1]], classProbs = TRUE),
                 method = "svmRadial", metric = "MCC")
 plot(svmProfile)
 predictors(svmProfile)
@@ -242,25 +242,5 @@ plot(svmProfile, type=c("g", "o"))
 Bor = Boruta(pcdata_ml[,-(ncol(canonical_mirna))],pcdata_ml$class, getImp = getImpRfZ)
 plot(Bor)
 labs = rev(names(colMeans(Bor$ImpHistory)))
-text(cex=1, x=x-.25, y=-1.25, labs, xpd=TRUE, srt=45)
+#text(cex=1, x=x-.25, y=-1.25, labs, xpd=TRUE, srt=45)
 
-imp2=getImpRfZ(pcdata_ml[,-(ncol(canonical_mirna))],pcdata_ml$class)
-ord=order(-as.double(imp2))
-Imp=data.frame(RFBoruta=names(imp2)[order(-as.double(imp2))][1:length(predictors(svmProfile))],
-               RFBorutaImp=imp2[order(-as.double(imp2))][1:length(predictors(svmProfile))],
-               SVMrfe = predictors(svmProfile),
-               SVMrfeMCC = svmProfile$results$MCC[1:length(predictors(svmProfile))]
-               )
-cat("\nImportance by random forest using Boruta package and RFE\n")
-print(Imp)
-
-####################################################################################################
-#Classification using top features
-
-top_feat = cbind(pcdata_ml[,predictors(svmProfile)],class = pcdata_ml$class)
-cat("\n1x5-fold Cross-validation classification\n")
-x1=LogReg(top_feat, folds)
-print(x1[[1]])
-pred=predict(x1[[3]],test_mirna) #predict on svm model
-print(table(pred))
-print(mean(as.double(pred)-1))
