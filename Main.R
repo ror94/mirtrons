@@ -7,7 +7,6 @@ if (Sys.info()[[1]]=="Windows"){
 library(Boruta) #rf importance
 library(agricolae) #tukey test
 library("ggplot2")
-library(psych) # pair_panels
 library(ggbiplot)
 library("stringr") #str_find
 library("RRNA") #makect
@@ -23,6 +22,7 @@ library(caret) # RFE
 library(mlr)
 library(TunePareto) # stratified
 library(MLmetrics) #cnfusion matrxi
+library(dplyr)
 
 source("loopscount.R")
 source("mirna_features.R")
@@ -44,10 +44,10 @@ source("BinEval.R")
 #CANONICAL MIRNAs
 canonical_data=read.csv("./Data/prep_names.csv", header=TRUE, stringsAsFactors = FALSE)
 canonical_data=canonical_data[-c(380,702,720,813,889),]
-mirna_input2=data.frame(hairpin_seq=canonical_data$hairpin_seq, db=canonical_data$dotbracket, fe=canonical_data$fe, 
+mirna_input2=data_frame(hairpin_seq=canonical_data$hairpin_seq, db=canonical_data$dotbracket, fe=canonical_data$fe, 
                         mature5p_seq=canonical_data$mature5p_seq, mature3p_seq=canonical_data$mature3p_seq, stringsAsFactors = FALSE)
 canonical_mirna=mirna_features(mirna_input2,random=FALSE)
-canonical_mirna$class=0
+canonical_mirna$class="canonical"
 #MIRTRONS
 mirtron_names=read.table("./Data/mirtron_names.txt")
 Index=c()
@@ -57,7 +57,7 @@ for (i in 1:dim(mirtron_names)[1]){
 }
 mirtron_mirna=canonical_mirna[Index,]
 canonical_mirna=canonical_mirna[-Index,]
-mirtron_mirna$class=1
+mirtron_mirna$class="mirtron"
 
 
 #TEST
@@ -66,15 +66,7 @@ test_data=test_data[-c(1,22,103,139,151,164,165,182,202),]
 test_input1=data.frame(hairpin_seq=test_data$hairpin_seq, db=test_data$dotbracket, fe=test_data$fe, 
                         mature5p_seq=test_data$mature5p_seq, mature3p_seq=test_data$mature3p_seq, stringsAsFactors = FALSE)
 test_mirna=mirna_features(test_input1,random=FALSE)
-test_mirna$class=1 #theoretically mirtrons
-
-
-#RANDOM
-random_data=read.csv("./Data/randomdata.csv", header=TRUE, stringsAsFactors = FALSE)
-random_input=data.frame(hairpin_seq="T", mature5p_seq=random_data$mature5p_seq, mature3p_seq=random_data$mature3p_seq, stringsAsFactors = FALSE)
-
-random_mirna=mirna_features(random_input,random=TRUE)
-random_mirna$class=1
+test_mirna$class="test" #theoretically mirtrons
 
 
 ######################################################################################################
@@ -84,7 +76,7 @@ source('mirnaplots.R')
 #canonicalplots_mirna=mirnaplots(canonical_mirna)
 #testplots_mirna=mirnaplots(test_mirna)
 
-P.values=data.frame(matrix(,nrow=dim(canonical_mirna)[2]-1,ncol=5))
+P.values = data_frame()
 sign=c('Not Significant','Significant')
 for (i in 1:(ncol(canonical_mirna)-1)){
   P.values[i,1]=wilcox.test(mirtron_mirna[,i],canonical_mirna[,i],alternative="two.sided")$p.value
@@ -99,39 +91,38 @@ for (i in 1:(ncol(canonical_mirna)-1)){
   P.values[i,4]=means[1]
   P.values[i,5]=means[2]
 }
-rownames(P.values)=colnames(canonical_mirna[,1:(dim(canonical_mirna)[2]-1)])
+P.values = P.values %>% mutate(Feature = colnames(canonical_mirna[,1:(dim(canonical_mirna)[2]-1)]))
 colnames(P.values)=c('Wilcoxon','Kolmogorov-Smirnov',paste('Tukey',tukey.alpha),'Mirtron mean','Canonical mean')
 cat("\nStatistical tests\n")
 print(P.values)
 
 ####################################################################################################################################################################
 #PCA
-canonical_mirna$mature3pposition=NULL
-canonical_mirna$mature5pposition=NULL
-canonical_mirna$mature5p_U=NULL
-canonical_mirna$mature3p_U=NULL
-canonical_mirna$hairpin_U=NULL
-canonical_mirna$interarm_U=NULL
 
-mirtron_mirna$mature3pposition=NULL
-mirtron_mirna$mature5pposition=NULL
-mirtron_mirna$mature5p_U=NULL
-mirtron_mirna$mature3p_U=NULL
-mirtron_mirna$hairpin_U=NULL
-mirtron_mirna$interarm_U=NULL
+#canonical_mirna$mature3pposition=NULL
+#canonical_mirna$mature5pposition=NULL
+#canonical_mirna$mature5p_U=NULL
+#canonical_mirna$mature3p_U=NULL
+#canonical_mirna$hairpin_U=NULL
+#canonical_mirna$interarm_U=NULL
 
-pcdata_ml=rbind(mirtron_mirna,canonical_mirna)
+#mirtron_mirna$mature3pposition=NULL
+#mirtron_mirna$mature5pposition=NULL
+#mirtron_mirna$mature5p_U=NULL
+#mirtron_mirna$mature3p_U=NULL
+#mirtron_mirna$hairpin_U=NULL
+#mirtron_mirna$interarm_U=NULL
 
-#pairs.panels(pcdata_ml)
-# PCA canonical vs mirtron
-pcdata=pcdata_ml[,-ncol(pcdata_ml)]
+pcdata_ml = bind_rows(mirtron_mirna,canonical_mirna, test_mirna) %>%
+  select(-c(contains("position"), contains("_U")))
+
+# PCA canonical vs mirtroni
+pcdata=pcdata_ml %>% filter()
 pca=prcomp(pcdata, retx=TRUE, center=TRUE, scale=TRUE)
 labels=factor(c(rep('mirtron',dim(mirtron_mirna)[1]),rep('canonical',dim(pcdata)[1]-dim(mirtron_mirna)[1])),levels=c('mirtron','canonical'))
-g <- ggbiplot(pca, obs.scale = 1, var.scale = 1, 
+g = ggbiplot(pca, obs.scale = 1, var.scale = 1, 
               groups = labels, ellipse = F, 
-              circle = F)
-g <- g + scale_color_discrete(name = '')
-g <- g + theme(legend.direction = 'horizontal', 
+              circle = F) + scale_color_discrete(name = '') + theme(legend.direction = 'horizontal', 
                legend.position = 'top')
 print(g) #mirtron vs canonical
 
