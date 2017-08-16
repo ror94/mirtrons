@@ -47,7 +47,7 @@ canonical_data=canonical_data[-c(380,702,720,813,889),]
 mirna_input2=data_frame(hairpin_seq=canonical_data$hairpin_seq, db=canonical_data$dotbracket, fe=canonical_data$fe, 
                         mature5p_seq=canonical_data$mature5p_seq, mature3p_seq=canonical_data$mature3p_seq, stringsAsFactors = FALSE)
 canonical_mirna=mirna_features(mirna_input2,random=FALSE)
-canonical_mirna$class="canonical"
+canonical_mirna$class=0
 #MIRTRONS
 mirtron_names=read.table("./Data/mirtron_names.txt")
 Index=c()
@@ -57,7 +57,7 @@ for (i in 1:dim(mirtron_names)[1]){
 }
 mirtron_mirna=canonical_mirna[Index,]
 canonical_mirna=canonical_mirna[-Index,]
-mirtron_mirna$class="mirtron"
+mirtron_mirna$class=1
 
 
 #TEST
@@ -66,7 +66,7 @@ test_data=test_data[-c(1,22,103,139,151,164,165,182,202),]
 test_input1=data.frame(hairpin_seq=test_data$hairpin_seq, db=test_data$dotbracket, fe=test_data$fe, 
                         mature5p_seq=test_data$mature5p_seq, mature3p_seq=test_data$mature3p_seq, stringsAsFactors = FALSE)
 test_mirna=mirna_features(test_input1,random=FALSE)
-test_mirna$class="test" #theoretically mirtrons
+test_mirna$class=1 #theoretically mirtrons
 
 
 ######################################################################################################
