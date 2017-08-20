@@ -6,7 +6,7 @@ errors=c()
   
     for (k in 1:dim(input)[1]){
       tryCatch({
-        db=input$db[k]
+        db=input$dotbracket[k]
         seq=input$hairpin_seq[k]
         #db="(((.((((..(((....))).)))..))))"
         #seq="AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
@@ -61,5 +61,6 @@ errors=c()
     print(k)
   }) 
     }
+colnames(all_loops) = c("small_loops", "large_loops", "terminal_loop_length")
 return(all_loops)
 }

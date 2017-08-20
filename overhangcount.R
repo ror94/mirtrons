@@ -6,7 +6,7 @@ overhangcount <- function(input){
   for (i in 1:dim(input)[1]){
     
     mir_seq=input$hairpin_seq[i]
-    db=input$db[i]
+    db=input$dotbracket[i]
     mir5p=input$mature5p_seq[i]
     mir3p=input$mature3p_seq[i]
     

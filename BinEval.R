@@ -1,18 +1,19 @@
 BinEval <-function (df){
   pred=ROCR::prediction(df[1],df[2])
   auc=ROCR::performance(pred, "auc")
+  sens = ROCR::performance(pred, "sens")
+  spec = ROCR::performance(pred, "spec")
+  roc = ROCR::performance(pred, "tpr", "fpr")
+  lift = ROCR::performance(pred, "lift", "tpr")
   
-  model_results=rep(0,dim(df)[1])
-  model_results[which(df[,1] >(0.5))]=1
+  
+  model_results=rep("Canonical",dim(df)[1])
+  model_results[which(df[,1] >(0.5))]="Mirtron"
   x=table(model_results,df[,2])
-  #TN=x[1]
-  #TP=x[4]
-  #FP=x[2]
-  #FN=x[3]
-  TN = sum(model_results == 0 & df[,2] == 0)
-  TP = sum(model_results == 1 & df[,2] == 1)
-  FP = sum(model_results == 1 & df[,2] == 0)
-  FN = sum(model_results == 0 & df[,2] == 1)
+  TN = sum(model_results == "Canonical" & df[,2] == "Canonical")
+  TP = sum(model_results == "Mirtron" & df[,2] == "Mirtron")
+  FP = sum(model_results == "Mirtron" & df[,2] == "Canonical")
+  FN = sum(model_results == "Canonical" & df[,2] == "Mirtron")
   #mean(model_results != check)
   Sens=TP/(TP+FN)
   Spec=TN/(TN+FP)

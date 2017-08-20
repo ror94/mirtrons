@@ -42,9 +42,9 @@ source("BinEval.R")
 #####################################################################################################################################################################
 
 #CANONICAL MIRNAs
-canonical_data=read.csv("./Data/prep_names.csv", header=TRUE, stringsAsFactors = FALSE)
+canonical_data=read.csv("./Data/prep_names.csv", header=TRUE, stringsAsFactors = FALSE, sep=";")
 canonical_data=canonical_data[-c(380,702,720,813,889),]
-mirna_input2=data_frame(hairpin_seq=canonical_data$hairpin_seq, db=canonical_data$dotbracket, fe=canonical_data$fe, 
+mirna_input2=data.frame(hairpin_seq=canonical_data$hairpin_seq, db=canonical_data$dotbracket, fe=canonical_data$fe, 
                         mature5p_seq=canonical_data$mature5p_seq, mature3p_seq=canonical_data$mature3p_seq, stringsAsFactors = FALSE)
 canonical_mirna=mirna_features(mirna_input2,random=FALSE)
 canonical_mirna$class=0
@@ -58,6 +58,9 @@ for (i in 1:dim(mirtron_names)[1]){
 mirtron_mirna=canonical_mirna[Index,]
 canonical_mirna=canonical_mirna[-Index,]
 mirtron_mirna$class=1
+
+mirtron_data = canonical_data[Index,]
+canonical_data =mirtron_data[-Index,]
 
 
 #TEST
@@ -98,20 +101,6 @@ print(P.values)
 
 ####################################################################################################################################################################
 #PCA
-
-#canonical_mirna$mature3pposition=NULL
-#canonical_mirna$mature5pposition=NULL
-#canonical_mirna$mature5p_U=NULL
-#canonical_mirna$mature3p_U=NULL
-#canonical_mirna$hairpin_U=NULL
-#canonical_mirna$interarm_U=NULL
-
-#mirtron_mirna$mature3pposition=NULL
-#mirtron_mirna$mature5pposition=NULL
-#mirtron_mirna$mature5p_U=NULL
-#mirtron_mirna$mature3p_U=NULL
-#mirtron_mirna$hairpin_U=NULL
-#mirtron_mirna$interarm_U=NULL
 
 pcdata_ml = bind_rows(mirtron_mirna,canonical_mirna, test_mirna) %>%
   select(-c(contains("position"), contains("_U")))

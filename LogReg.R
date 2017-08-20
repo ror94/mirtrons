@@ -1,8 +1,7 @@
 LogReg <-function(Z, folds){
 
-set.seed(15)  
 #X=BK_sample_crossVal(dim(Z)[1],itnumber)
-LR=data.frame(Sensitivity=double(),Specificity=double(),F1=double(),AUC=double(), MCC=double())
+LR=data_frame(Sensitivity=double(),Specificity=double(),F1=double(),AUC=double(), MCC=double())
 RF=LR
 LDA=LR
 DT=LR
@@ -10,19 +9,14 @@ SVM=LR
 NB=LR
 #folds = generateCVRuns(Z$class, ntimes = 1, nfold = itnumber, stratified = TRUE)
 for (i in 1:length(folds[[1]])){
-
   testing_data=Z[folds[[1]][[i]],]
   learning_data=Z[-folds[[1]][[i]],]
   check=testing_data$class
   testing_data$class=NULL
   
-  
-  
   # LOGISTIC REGRESSION
   model=glm(class~.,data=learning_data, family="binomial")
   model_pred_probs=predict(model, testing_data,type="response")
-  model_results=rep(0,dim(testing_data)[1])
-  model_results[model_pred_probs >(0.5)]=1
   df=data.frame(model_pred_probs, check)
   LR[i,]=BinEval(df)
   
@@ -70,8 +64,11 @@ LDA=colSums(LDA)/itnumber
 DT=colSums(DT)/itnumber
 SVM=colSums(SVM)/itnumber
 NB=colSums(NB)/itnumber
-Results=rbind(LR,RF,LDA,DT,SVM,NB)
-rownames(Results)=c("Logistic Regression", "Random Forest", "Linear Discriminant Analysis","Decision Tree", "Support Vector machines","Naive Bayes")
-results=list(Results,rfm,svm_model,folds)
+Results = bind_rows(LR,RF,LDA,DT,SVM,NB)%>%
+  mutate(Method = c("Logistic Regression", "Random Forest", 
+                    "Linear Discriminant Analysis","Decision Tree", "Support Vector machines","Naive Bayes"))   %>%
+  arrange(desc(MCC)) %>%
+  .[c(6,1,2,4,3,5)]
+results=list(results = Results,rf = rfm,svm = svm_model,folds = folds)
 return(results)
 }
