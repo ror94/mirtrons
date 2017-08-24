@@ -113,11 +113,11 @@ print(P.values)
 #mirtron_mirna$hairpin_U=NULL
 #mirtron_mirna$interarm_U=NULL
 
-pcdata_ml = bind_rows(mirtron_mirna,canonical_mirna, test_mirna) %>%
+pcdata_ml = bind_rows(mirtron_mirna,canonical_mirna) %>%
   select(-c(contains("position"), contains("_U")))
 
 # PCA canonical vs mirtroni
-pcdata=pcdata_ml %>% filter()
+pcdata=pcdata_ml %>% select(-class)
 pca=prcomp(pcdata, retx=TRUE, center=TRUE, scale=TRUE)
 labels=factor(c(rep('mirtron',dim(mirtron_mirna)[1]),rep('canonical',dim(pcdata)[1]-dim(mirtron_mirna)[1])),levels=c('mirtron','canonical'))
 g = ggbiplot(pca, obs.scale = 1, var.scale = 1, 
@@ -209,22 +209,22 @@ classes = replace(classes, which(classes == "0"), "canonical")
 
 #library(caret) # RFE
 mcc <- function(data, lev = NULL, model = NULL) {
-  #f1_val <- F1_Score(y_pred = data$pred, y_true = data$obs, positive = lev[1])
   conf_mat = ConfusionMatrix(y_pred = data$pred, y_true = data$obs)
   TP = conf_mat[4] 
   TN = conf_mat[1]
   FP = conf_mat[3]
   FN = conf_mat[2]
   mcc_val = (TP*TN-FP*FN)/(sqrt((TP+FP)*(TP+FN)*(TN+FP)*(TN+FN)))
-  #c(F1 = f1_val)
-  c(MCC = mcc_val)
+  #c(TPR = TP/(TP+FN))
+  c(F1 = 2*TP/(2*TP+FP+FN))
+  #c(MCC = mcc_val)
 }
 caretFuncs$summary <- mcc
 svmProfile <-rfe(pcdata, as.factor(classes),sizes=c(1:21),
                 rfeControl = rfeControl(functions = caretFuncs,
-                verbose = FALSE, method = "cv", number = 5, index = folds[[1]]),
+                verbose = FALSE, method = "cv", number = 1, index = folds[[1]]),
                 #trControl = trainControl(method = "cv", number = 1, index = folds[[1]], classProbs = TRUE),
-                method = "svmRadial", metric = "MCC")
+                method = "svmRadial", metric = "F1")
 plot(svmProfile)
 predictors(svmProfile)
 plot(svmProfile, type=c("g", "o"))
