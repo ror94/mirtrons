@@ -5,7 +5,7 @@ if (Sys.info()[[1]]=="Windows"){
   setwd("~/Workspace/R/Mirtrons")
 }
 
-# PACKAGES ####
+## PACKAGES ####
 library(magrittr)
 library(stringr) 
 library("RRNA") # makect
@@ -23,16 +23,18 @@ library(dplyr)
 library(tidyr)
 library(Boruta)
 library(caret) #RFE
-library(MLmetrics) #cnfusion matrxi
 library(lattice)
-library(latticeExtra)
+library(grid)
+library(gridExtra)
+#library(latticeExtra)
 install_github("vqv/ggbiplot")
-
 source("mirna_features.R")
 source("overhangcount.R")
 source("loopscount.R")
 source("LogReg.R")
 source("BinEval.R")
+source("multiplot.R")
+
 
 ## DATA PREPERATION ####
 canonical_data = read.csv("./Data/data.csv", header=TRUE, stringsAsFactors = FALSE)
@@ -42,31 +44,47 @@ canonical_data %>%
   mutate(mirna_class = factor(class, labels = c('Canonical', 'Mirtron'))) %>%
   dplyr::select(-class) %>%
   filter(!(as.numeric(rowname) %in% c(380,702,720,813,889,928))) %>%
-  mirna_features -> mirna_data
+  mirna_features %>%
+  select(-c(interarm3p, interarm5p)) -> mirna_data
 
 test_mirna_data=read.csv("./Data/testdata.csv", header=TRUE, stringsAsFactors = FALSE)
 test_mirna_data %>% 
-  mutate(mirna_class = factor(class, labels = 'Mirtron')) %>%
+  mutate(mirna_class = factor("Mirtron")) %>%
   tibble::rownames_to_column() %>% 
   filter(!(as.numeric(rowname) %in% c(1,22,103,139,151,164,165,182,202))) %>% 
   mirna_features -> test_data
 
-## PLOTS AND STATISTICS ####
-source('mirnaplots.R')
+## PLOTS ####
+
 #mirtronplots_mirna=mirnaplots(mirtron_mirna)
 #canonicalplots_mirna=mirnaplots(canonical_mirna)
 #testplots_mirna=mirnaplots(test_mirna)
+mirna_means = mirna_data %>% 
+  group_by(class) %>% 
+  summarise_if(is.numeric, funs(mean))
 
-mirtron_mature5p_G = mirna_data %>% filter(class == "Mirtron") %>% select(mature5p_G)
-canonical_mature5p_G = mirna_data %>% filter(class == "Canonical") %>% select(mature5p_G)
-mirtron_mature3p_C = mirna_data %>% filter(class == "Mirtron") %>% select(mature3p_C)
+plot_histogram = function (data, name, means){
+  ggplot(data = data, aes_string(name, fill = "class", color = "class")) + geom_histogram(alpha = 0.3, bins = 30) +
+  geom_vline(data = means, aes_string(xintercept=name, color="class"), linetype="dashed", size = 1.2) + 
+  scale_fill_brewer(palette="Dark2") +
+  scale_color_brewer(palette="Dark2") + 
+  theme_minimal()+theme(legend.position="top")
+}
 
-plot(ecdf(pull(mirtron_mature5p_G)))
-plot(ecdf(pull(canonical_mature5p_G)))
+plot_histogram = function (data, name, means){
+  ggplot(data = data, aes_string(name, fill = "class", color = "class")) + geom_histogram(alpha = 0.3, bins = 30) +
+    scale_fill_brewer(palette="Dark2") +
+    scale_color_brewer(palette="Dark2") + 
+    theme_minimal()+theme(legend.position="top")
+}
+#myplots <- lapply(mirna_means %>% select_if(is.numeric) %>% names, plot_histogram, data = mirna_data, means = mirna_means)
+#multiplot(plotlist = myplots, cols = 5)
+content = mirna_data %>% 
+  select(mature5p_A, mature5p_C, mature5p_G, mature5p_U, class) %>% 
+  rownames_to_column %>% gather("variable", "value", 2:5)
 
-plot(ecdf(pull(mirtron_mature5p_G)), verticals=TRUE, do.points=FALSE)
-plot(ecdf(pull(canonical_mature5p_G)), verticals=TRUE, do.points=FALSE, add=TRUE, col='brown')
-
+## STATISTICS ####
+source('mirnaplots.R')
 P.values = data_frame()
 sign=c('Not Significant','Significant')
 
@@ -75,13 +93,13 @@ tukey = function(x, classes) {
   tukey_df=data_frame(input = x, classes = classes)
   means=tapply(tukey_df$input,tukey_df$classes, mean)
   ajuste <- lm( tukey_df$input ~ tukey_df$classes)
-  tukey.alpha=0.005
+  tukey.alpha=0.01
   h=HSD.test(ajuste, 'tukey_df$classes',alpha=tukey.alpha)
   tukey = sign[length(levels(h$groups$M))]
 }
 classes = as.numeric(mirna_data$class == "Mirtron")
 mirna_data %>% 
-  summarise_if(is.numeric, funs("T - test" = t.test(.[class == "Mirtron"], .[class == "Canonical"])$p.value,
+  summarise_if(is.numeric, funs("Wilcoxon - test" = wilcox.test(.[class == "Mirtron"], .[class == "Canonical"])$p.value,
                                 "KS - test" = ks.test(.[class == "Mirtron"], .[class == "Canonical"])$p.value,
                                 "Tukey - test" = tukey(., classes))) %>%
   gather %>%
@@ -94,7 +112,7 @@ print(test_results)
 ## Principal Component Analysis ####
 
 ml_data = mirna_data %>% 
-  dplyr::select(-c(contains("position"), contains("_U"), rowname, hairpin_name, interarm3p, interarm5p))
+  dplyr::select(-c(contains("position"), contains("_U"), rowname, hairpin_name))
 pca_data = dplyr::select(ml_data, -class)
 pca=prcomp(pca_data, retx=TRUE, center=TRUE, scale=TRUE)
 labels=factor(mirna_data$class)
@@ -175,7 +193,7 @@ for (i in 1:length(preds)){
     Z = ml_data %>% select(c(stepwise, j), class) 
     x=LogReg(Z, folds, models = "SVM")
     F1 = x[[1]] %>% filter(Method == "Support Vector Machines") %>% select(F1)
-    if (F1 > f1) {
+    if (!is.na(F1) & F1 > f1 ) {
       best_model <- x[[3]]
       f1 <- as.numeric(F1)
       best_variable <- j
@@ -198,35 +216,12 @@ print(g)
 ## VERIFICATION ####
 no_best_features = which(stepwise_results$F1 == max(stepwise_results$F1))
 final_data = ml_data %>% select(stepwise_results$feature[1:no_best_features], class)
-x=LogReg(final_data, folds)
+x2=LogReg(final_data, folds)
 print(x$results)
-
-## RFE ####
-classes = ml_data$class
-library(caret) # RFE
-mcc <- function(x, lev = NULL, model = NULL) {
-  #f1_val <- F1_Score(y_pred = data$pred, y_true = data$obs, positive = lev[1])
-  conf_mat = ConfusionMatrix(y_pred = x$pred, y_true = x$obs)
-  TP = as.numeric(conf_mat[4])
-  TN = as.numeric(conf_mat[1])
-  FP = as.numeric(conf_mat[3])
-  FN = as.numeric(conf_mat[2])
-  c(F1 = 2*TP/(2*TP+FP+FN))
-  #c(TPR = TP/(TP+FN))
-  #c(TNR = TN / (TN+FP))
-  #c(MCC = (TP*TN-FP*FN)/(sqrt((TP+FP)*(TP+FN)*(TN+FP)*(TN+FN))))
-}
-caretFuncs$summary <- mcc
-
-ctrl <- rfeControl(functions = caretFuncs,
-                   method = "cv",
-                   verbose = FALSE,
-                   index = folds$`Run  1`)
-svmProfile <-rfe(as.data.frame(pca_data), classes, sizes=c(1:21), rfeControl = ctrl, method = "svmRadial", metrics = "F1")
-
-plot(svmProfile)
-predictors(svmProfile)
-plot(svmProfile, type=c("g", "o"))
+pred=predict(x2$svm,ml_test_data) #predict on svm model
+all = append(pred, ml_test_data$class)
+conf_mat = table(as.character(pred), test_data$class)
+accuracy = conf_mat[2] / sum(conf_mat)
 
 ## Print results ####
 print(test_results, n = Inf)
@@ -235,4 +230,5 @@ print(Singlef, n = Inf)
 print(stepwise_results, n = Inf)
 print(Boruta_results, n = Inf)
 print(bind_cols(Boruta_results %>% filter(!grepl("shadow",Feature)), stepwise_results), n = Inf)
+print(x2$results, n = Inf)
 
