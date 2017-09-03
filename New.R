@@ -132,6 +132,7 @@ lines3d(coords*10, col="red", lwd=2)
 
 ## CLASSIFICATION ####
 source("LogReg.R")
+source("BinEval.R")
 itnumber = 5
 set.seed(27)
 folds = generateCVRuns(ml_data$class, ntimes = 1, nfold = itnumber, stratified = TRUE)
@@ -185,13 +186,23 @@ for (i in 1:length(preds)){
   models_table[[i]] = best_model
   cat(i,". ",best_variable, ", F1 = ", f1, "\n")
 }
-stepwise_results = data_frame(feature = stepwise, "F1" = f1s)
+stepwise_results = data_frame(feature = stepwise, "F1" = f1s) %>% rownames_to_column()
 
 
+g = ggplot(stepwise_results, aes(x = feature, F1)) + 
+  geom_point() +
+  scale_x_discrete(limits = stepwise_results$feature) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+print(g)
+
+## VERIFICATION ####
+no_best_features = which(stepwise_results$F1 == max(stepwise_results$F1))
+final_data = ml_data %>% select(stepwise_results$feature[1:no_best_features], class)
+x=LogReg(final_data, folds)
+print(x$results)
 
 ## RFE ####
 classes = ml_data$class
-
 library(caret) # RFE
 mcc <- function(x, lev = NULL, model = NULL) {
   #f1_val <- F1_Score(y_pred = data$pred, y_true = data$obs, positive = lev[1])
@@ -217,10 +228,11 @@ plot(svmProfile)
 predictors(svmProfile)
 plot(svmProfile, type=c("g", "o"))
 
-##Print results ####
+## Print results ####
 print(test_results, n = Inf)
 print(x$results, n = Inf)
 print(Singlef, n = Inf)
 print(stepwise_results, n = Inf)
 print(Boruta_results, n = Inf)
 print(bind_cols(Boruta_results %>% filter(!grepl("shadow",Feature)), stepwise_results), n = Inf)
+
