@@ -5,7 +5,7 @@ if (Sys.info()[[1]]=="Windows"){
   setwd("~/Workspace/R/Mirtrons")
 }
 
-# PACKAGES
+# PACKAGES ####
 library(magrittr)
 library(stringr) 
 library("RRNA") # makect
@@ -24,6 +24,8 @@ library(tidyr)
 library(Boruta)
 library(caret) #RFE
 library(MLmetrics) #cnfusion matrxi
+library(lattice)
+library(latticeExtra)
 install_github("vqv/ggbiplot")
 
 source("mirna_features.R")
@@ -32,7 +34,7 @@ source("loopscount.R")
 source("LogReg.R")
 source("BinEval.R")
 
-## DATA PREPERATION ####################################################################################
+## DATA PREPERATION ####
 canonical_data = read.csv("./Data/data.csv", header=TRUE, stringsAsFactors = FALSE)
 canonical_data = tbl_df(canonical_data)
 canonical_data %>% 
@@ -49,11 +51,21 @@ test_mirna_data %>%
   filter(!(as.numeric(rowname) %in% c(1,22,103,139,151,164,165,182,202))) %>% 
   mirna_features -> test_data
 
-## PLOTS AND STATISTICS ################################################################################
+## PLOTS AND STATISTICS ####
 source('mirnaplots.R')
 #mirtronplots_mirna=mirnaplots(mirtron_mirna)
 #canonicalplots_mirna=mirnaplots(canonical_mirna)
 #testplots_mirna=mirnaplots(test_mirna)
+
+mirtron_mature5p_G = mirna_data %>% filter(class == "Mirtron") %>% select(mature5p_G)
+canonical_mature5p_G = mirna_data %>% filter(class == "Canonical") %>% select(mature5p_G)
+mirtron_mature3p_C = mirna_data %>% filter(class == "Mirtron") %>% select(mature3p_C)
+
+plot(ecdf(pull(mirtron_mature5p_G)))
+plot(ecdf(pull(canonical_mature5p_G)))
+
+plot(ecdf(pull(mirtron_mature5p_G)), verticals=TRUE, do.points=FALSE)
+plot(ecdf(pull(canonical_mature5p_G)), verticals=TRUE, do.points=FALSE, add=TRUE, col='brown')
 
 P.values = data_frame()
 sign=c('Not Significant','Significant')
@@ -79,7 +91,7 @@ mirna_data %>%
 cat("\nStatistical tests\n")
 print(test_results)
 
-## Principal Component Analysis ######################################################################
+## Principal Component Analysis ####
 
 ml_data = mirna_data %>% 
   dplyr::select(-c(contains("position"), contains("_U"), rowname, hairpin_name, interarm3p, interarm5p))
@@ -118,7 +130,7 @@ pca3 = plot3d(pca$x[,1:3], col=colors, size = 5)
 text3d(pca$rotation[,1:3]*10, texts=rownames(pca$rotation), col="red")
 lines3d(coords*10, col="red", lwd=2)
 
-## CLASSIFICATION ###################################################################################
+## CLASSIFICATION ####
 source("LogReg.R")
 itnumber = 5
 set.seed(27)
@@ -130,7 +142,7 @@ pred=predict(x$svm,ml_test_data) #predict on svm model
 print(table(pred))
 print(mean(as.double(pred)-1))
 
-## SINGLE FEATURE ###################################################################################
+## SINGLE FEATURE ####
 
 Singlef=data_frame()
 for (i in 1:(dim(ml_data)[2]-1)){
@@ -142,8 +154,42 @@ Singlef = Singlef %>%
   arrange(desc(MCC))
 print(Singlef)
 
-## BORUTA AND RFE ###################################################################################
+## BORUTA ####
+Bor = Boruta(ml_data[,-(ncol(ml_data))],ml_data$class, getImp = getImpRfZ)
+plot(Bor)
+labs = rev(names(colMeans(Bor$ImpHistory)))
+#text(cex=1, x=x-.25, y=-1.25, labs, xpd=TRUE, srt=45)
+Boruta_results = data_frame(Feature = colnames(Bor$ImpHistory), Means = colMeans(Bor$ImpHistory)) %>%
+  arrange(desc(Means))
 
+## STEPWISE SVM ####
+preds = ml_data %>% select(-class) %>% names
+stepwise = c()
+f1s = c()
+models_table = list()
+SVM = data_frame(Sensitivity=double(),Specificity=double(),F1=double(),AUC=double(), MCC=double())
+for (i in 1:length(preds)){
+  f1 = 0
+  for (j in setdiff(preds, stepwise)){
+    Z = ml_data %>% select(c(stepwise, j), class) 
+    x=LogReg(Z, folds, models = "SVM")
+    F1 = x[[1]] %>% filter(Method == "Support Vector Machines") %>% select(F1)
+    if (F1 > f1) {
+      best_model <- x[[3]]
+      f1 <- as.numeric(F1)
+      best_variable <- j
+    }
+  }
+  stepwise = append(stepwise, best_variable)
+  f1s = append(f1s, f1)
+  models_table[[i]] = best_model
+  cat(i,". ",best_variable, ", F1 = ", f1, "\n")
+}
+stepwise_results = data_frame(feature = stepwise, "F1" = f1s)
+
+
+
+## RFE ####
 classes = ml_data$class
 
 library(caret) # RFE
@@ -171,17 +217,10 @@ plot(svmProfile)
 predictors(svmProfile)
 plot(svmProfile, type=c("g", "o"))
 
-
-Bor = Boruta(ml_data[,-(ncol(ml_data))],ml_data$class, getImp = getImpRfZ)
-plot(Bor)
-labs = rev(names(colMeans(Bor$ImpHistory)))
-#text(cex=1, x=x-.25, y=-1.25, labs, xpd=TRUE, srt=45)
-Boruta_results = data_frame(Feature = colnames(Bor$ImpHistory), Means = colMeans(Bor$ImpHistory)) %>%
-  arrange(desc(Means))
-
-
-## Print results ########################################################################################
+##Print results ####
+print(test_results, n = Inf)
 print(x$results, n = Inf)
 print(Singlef, n = Inf)
-print(test_results, n = Inf)
+print(stepwise_results, n = Inf)
 print(Boruta_results, n = Inf)
+print(bind_cols(Boruta_results %>% filter(!grepl("shadow",Feature)), stepwise_results), n = Inf)
