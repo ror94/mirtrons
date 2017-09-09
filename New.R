@@ -77,6 +77,7 @@ plot_histogram = function (data, name, means){
     scale_color_brewer(palette="Dark2") + 
     theme_minimal()+theme(legend.position="top")
 }
+
 #myplots <- lapply(mirna_means %>% select_if(is.numeric) %>% names, plot_histogram, data = mirna_data, means = mirna_means)
 #multiplot(plotlist = myplots, cols = 5)
 content = mirna_data %>% 
@@ -148,6 +149,10 @@ pca3 = plot3d(pca$x[,1:3], col=colors, size = 5)
 text3d(pca$rotation[,1:3]*10, texts=rownames(pca$rotation), col="red")
 lines3d(coords*10, col="red", lwd=2)
 
+## CORRELATION ####
+mir_cor = cor(ml_data %>% select(-class))
+find_cor = findCorrelation(mir_cor, cutoff = 0.3, verbose = T, names = T)
+ml_data = ml_data %>% select_if((names(.) %in% find_cor))
 ## CLASSIFICATION ####
 source("LogReg.R")
 source("BinEval.R")
@@ -231,4 +236,26 @@ print(stepwise_results, n = Inf)
 print(Boruta_results, n = Inf)
 print(bind_cols(Boruta_results %>% filter(!grepl("shadow",Feature)), stepwise_results), n = Inf)
 print(x2$results, n = Inf)
+## Arrows ####
+v1 = Boruta_results %>% filter(!grepl("shadow",Feature)) %>% select(Feature) %>% pull
+v2 = stepwise_results %>% select(feature) %>% pull
+o <- 0.07
+DF <- data.frame(x = c(rep(1, length(v1)), rep(1.5, length(v2))),
+                 x1 = c(rep(1 + o, length(v1)), rep(1.5 - o, length(v2))),
+                 y = c(rev(seq_along(v1)), rev(seq_along(v2))),
+                 g = c(v1, v2))
+differences = diff(as.matrix(spread(DF,g,y)))[,-c(1:2)] %>% data.frame(change = .) %>% rownames_to_column() %>% rename(g = rowname)
+DF = join(DF, differences) %>% mutate(arr_color = ifelse(change > 0, "green", ifelse(change == 0, "yellow", "red")))
+library(ggplot2)
+library(grid)
+ggplot(DF, aes(x=x, y=y, group=g, label = g)) +
+  geom_path(aes(x=x1), arrow = arrow(length = unit(0.02,"npc")), 
+            size=0.5, color=DF$arr_color) +
+  geom_text(size=4) +
+  theme_minimal() + theme(axis.title = element_blank(),
+                          axis.text = element_blank(),
+                          axis.ticks = element_blank(),
+                          panel.grid = element_blank()) + xlim(c(0.9,1.6)) + 
+  ggtitle("Boruta ranking vs SFS ranking") +
+  theme(plot.title = element_text(hjust = 0.5))
 
