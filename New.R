@@ -151,8 +151,15 @@ lines3d(coords*10, col="red", lwd=2)
 
 ## CORRELATION ####
 mir_cor = cor(ml_data %>% select(-class))
-find_cor = findCorrelation(mir_cor, cutoff = 0.3, verbose = T, names = T)
-ml_data = ml_data %>% select_if((names(.) %in% find_cor))
+find_cor = findCorrelation(mir_cor, cutoff = 0.7, verbose = T, names = T)
+ml_data = ml_data %>% select_if(!(names(.) %in% find_cor))
+cor_df = as.data.frame(as.table(mir_cor)) %>%
+  mutate(Freq = abs(Freq)) %>%
+  arrange(desc(Freq)) %>%
+  filter(Freq != 1) %>%
+  filter(row_number() %%2 == 0) %>%
+  rename(Pearson = Freq)
+
 ## CLASSIFICATION ####
 source("LogReg.R")
 source("BinEval.R")
