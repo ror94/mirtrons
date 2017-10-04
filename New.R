@@ -6,7 +6,10 @@ if (Sys.info()[[1]]=="Windows"){
 }
 
 ## PACKAGES ####
-library(magrittr)
+#source("https://bioconductor.org/biocLite.R")
+#biocLite("RRNA")
+library(devtools)
+install_github("vqv/ggbiplot")
 library(stringr) 
 library("RRNA") # makect
 library(agricolae) # tukey
@@ -18,16 +21,13 @@ library(MASS) #lda
 library(tree) #tree
 library(e1071) #svm
 library(ROCR) #evaluation
-library(tibble)
-library(dplyr)
-library(tidyr)
+library(tidyverse)
 library(Boruta)
 library(caret) #RFE
 library(lattice)
 library(grid)
 library(gridExtra)
 #library(latticeExtra)
-install_github("vqv/ggbiplot")
 source("mirna_features.R")
 source("overhangcount.R")
 source("loopscount.R")
@@ -85,7 +85,7 @@ content = mirna_data %>%
   rownames_to_column %>% gather("variable", "value", 2:5)
 
 ## STATISTICS ####
-source('mirnaplots.R')
+#source('mirnaplots.R')
 P.values = data_frame()
 sign=c('Not Significant','Significant')
 
@@ -96,7 +96,8 @@ tukey = function(x, classes) {
   ajuste <- lm( tukey_df$input ~ tukey_df$classes)
   tukey.alpha=0.01
   h=HSD.test(ajuste, 'tukey_df$classes',alpha=tukey.alpha)
-  tukey = sign[length(levels(h$groups$M))]
+  tukey = sign[length(levels(h$groups$groups))] #$M
+  return(tukey)
 }
 classes = as.numeric(mirna_data$class == "Mirtron")
 mirna_data %>% 
@@ -108,7 +109,7 @@ mirna_data %>%
   spread(test, value) -> test_results
 
 cat("\nStatistical tests\n")
-print(test_results)
+print(test_results, n = Inf)
 
 ## Principal Component Analysis ####
 
@@ -151,14 +152,14 @@ lines3d(coords*10, col="red", lwd=2)
 
 ## CORRELATION ####
 mir_cor = cor(ml_data %>% select(-class))
-find_cor = findCorrelation(mir_cor, cutoff = 0.7, verbose = T, names = T)
+find_cor = findCorrelation(mir_cor, cutoff = 0.8, verbose = T, names = T)
 ml_data = ml_data %>% select_if(!(names(.) %in% find_cor))
 cor_df = as.data.frame(as.table(mir_cor)) %>%
   mutate(Freq = abs(Freq)) %>%
   arrange(desc(Freq)) %>%
   filter(Freq != 1) %>%
   filter(row_number() %%2 == 0) %>%
-  rename(Pearson = Freq)
+  rename(replace = c("Freq" = "Pearson"))
 
 ## CLASSIFICATION ####
 source("LogReg.R")
@@ -181,7 +182,7 @@ for (i in 1:(dim(ml_data)[2]-1)){
   Singlef=bind_rows(Singlef,singlef$results %>% filter(grepl('Support', Method)))
 }
 Singlef = Singlef %>%
-  mutate(Method = colnames(pca_data)) %>%
+  mutate(Method = colnames(ml_data %>% select(-class))) %>%
   arrange(desc(MCC))
 print(Singlef)
 
@@ -203,10 +204,10 @@ for (i in 1:length(preds)){
   f1 = 0
   for (j in setdiff(preds, stepwise)){
     Z = ml_data %>% select(c(stepwise, j), class) 
-    x=LogReg(Z, folds, models = "SVM")
-    F1 = x[[1]] %>% filter(Method == "Support Vector Machines") %>% select(F1)
+    xs=LogReg(Z, folds, models = "SVM")
+    F1 = xs[[1]] %>% filter(Method == "Support Vector Machines") %>% select(F1)
     if (!is.na(F1) & F1 > f1 ) {
-      best_model <- x[[3]]
+      best_model <- xs[[3]]
       f1 <- as.numeric(F1)
       best_variable <- j
     }
@@ -214,7 +215,7 @@ for (i in 1:length(preds)){
   stepwise = append(stepwise, best_variable)
   f1s = append(f1s, f1)
   models_table[[i]] = best_model
-  cat(i,". ",best_variable, ", F1 = ", f1, "\n")
+  cat(paste0(i,". ",best_variable, ", F1 = ", f1, "\n"))
 }
 stepwise_results = data_frame(feature = stepwise, "F1" = f1s) %>% rownames_to_column()
 
@@ -229,7 +230,6 @@ print(g)
 no_best_features = which(stepwise_results$F1 == max(stepwise_results$F1))
 final_data = ml_data %>% select(stepwise_results$feature[1:no_best_features], class)
 x2=LogReg(final_data, folds)
-print(x$results)
 pred=predict(x2$svm,ml_test_data) #predict on svm model
 all = append(pred, ml_test_data$class)
 conf_mat = table(as.character(pred), test_data$class)
@@ -238,11 +238,11 @@ accuracy = conf_mat[2] / sum(conf_mat)
 ## Print results ####
 print(test_results, n = Inf)
 print(x$results, n = Inf)
+print(x2$results, n = Inf)
 print(Singlef, n = Inf)
 print(stepwise_results, n = Inf)
 print(Boruta_results, n = Inf)
 print(bind_cols(Boruta_results %>% filter(!grepl("shadow",Feature)), stepwise_results), n = Inf)
-print(x2$results, n = Inf)
 ## Arrows ####
 v1 = Boruta_results %>% filter(!grepl("shadow",Feature)) %>% select(Feature) %>% pull
 v2 = stepwise_results %>% select(feature) %>% pull
@@ -251,7 +251,7 @@ DF <- data.frame(x = c(rep(1, length(v1)), rep(1.5, length(v2))),
                  x1 = c(rep(1 + o, length(v1)), rep(1.5 - o, length(v2))),
                  y = c(rev(seq_along(v1)), rev(seq_along(v2))),
                  g = c(v1, v2))
-differences = diff(as.matrix(spread(DF,g,y)))[,-c(1:2)] %>% data.frame(change = .) %>% rownames_to_column() %>% rename(g = rowname)
+differences = diff(as.matrix(spread(DF,g,y)))[,-c(1:2)] %>% data.frame(change = .) %>% rownames_to_column() %>% rename(replace =  c("rowname" = "g"))
 DF = join(DF, differences) %>% mutate(arr_color = ifelse(change > 0, "green", ifelse(change == 0, "yellow", "red")))
 library(ggplot2)
 library(grid)
