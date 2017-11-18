@@ -327,7 +327,7 @@ grbiplot <- function(PC, class, ...){
   print(g)
 }
 stepwise <- function(ml_data, ...){
-  preds = ml_data %>% select(-class) %>% names
+  preds = ml_data %>% dplyr::select(-class) %>% names
   stepwise = c()
   f1s = c()
   models_table = list()
@@ -337,9 +337,9 @@ stepwise <- function(ml_data, ...){
   for (i in 1:length(preds)){
     f1 = 0
     for (j in setdiff(preds, stepwise)){
-      Z = ml_data %>% select(c(stepwise, j), class) 
+      Z = ml_data %>% dplyr::select(c(stepwise, j), class) 
       xs=LogReg(Z, folds, models = "SVM")
-      F1 = xs[[1]] %>% filter(Method == "Support Vector Machines") %>% select(F1)
+      F1 = xs[[1]] %>% filter(Method == "Support Vector Machines") %>% dplyr::select(F1)
       if (!is.na(F1) & F1 > f1 ) {
         best_model <- xs[[3]]
         f1 <- as.numeric(F1)

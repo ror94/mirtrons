@@ -41,15 +41,13 @@ canonical_data %>%
   tibble::rownames_to_column() %>% 
   mutate(mirna_class = factor(class, labels = c('Canonical', 'Mirtron'))) %>%
   dplyr::select(-class) %>%
-  filter(!(as.numeric(rowname) %in% c(380,702,720,813,889,928))) %>%
   mirna_features %>%
-  select(-c(interarm3p, interarm5p)) -> mirna_data
+  dplyr::select(-interarm3p, -interarm5p) -> mirna_data
 
 test_mirna_data=read.csv("./Data/testdata.csv", header=TRUE, stringsAsFactors = FALSE)
 test_mirna_data %>% 
   mutate(mirna_class = factor("Mirtron")) %>%
   tibble::rownames_to_column() %>% 
-  filter(!(as.numeric(rowname) %in% c(1,22,103,139,151,164,165,182,202))) %>% 
   mirna_features -> test_data
 
 ## PLOTS ####
@@ -96,7 +94,7 @@ myplots <- lapply(mirna_means %>%
                     select_if(is.numeric) %>% 
                     select(4,5,6,7,2,8,9,10,11,3,13,14,15,16,12,18,19,20,21,1,17,22,23,24,25) %>% 
                     names, tryCatch({plot_histogram}, error = function(e){print(name)}) , data = mirna_data, means = mirna_means, pos = pos)
-multiplot(plotlist = myplots[1:25], cols = 5)
+#multiplot(plotlist = myplots[1:25], cols = 5)
 #content = mirna_data %>% 
 #  select(mature5p_A, mature5p_C, mature5p_G, mature5p_U, class) %>% 
 #  rownames_to_column %>% gather("variable", "value", 2:5)
@@ -131,11 +129,11 @@ mirna_data %>%
                                                %>% filter(class == "Mirtron") 
                                                %>% select_if(is.numeric) , 2, FUN = median)) 
              %>% rownames_to_column(var = "name")) %>% 
-  inner_join(data.frame("Canonical median" = aply(mirna_data 
+  inner_join(data.frame("Canonical median" = apply(mirna_data 
                                                  %>% filter(class == "Canonical") %>% 
                                                    select_if(is.numeric) , 2, FUN = median)) %>% 
                rownames_to_column(var = "name")) %>%
-  select(-2, -3) -> test_results
+  dplyr::select(-2, -3) -> test_results
 test_results$Mirtron.median = format(test_results$Mirtron.median, digits = 2 )
 test_results$Canonical.median = format(test_results$Canonical.median, digits = 2 )
 test_results$`Wilcoxon test`= format(as.numeric(test_results$`Wilcoxon test`), digits = 3 )
@@ -174,17 +172,6 @@ for (i in 1:nrow(pca$rotation)) {
 pca3 = plot3d(pca$x[,1:3], col=colors, size = 5)
 text3d(pca$rotation[,1:3]*10, texts=rownames(pca$rotation), col="red")
 lines3d(coords*10, col="red", lwd=2)
-
-## CORRELATION ####
-#mir_cor = cor(ml_data %>% select(-class))
-#find_cor = findCorrelation(mir_cor, cutoff = 0.8, verbose = T, names = T)
-#ml_data = ml_data %>% select_if(!(names(.) %in% find_cor))
-#cor_df = as.data.frame(as.table(mir_cor)) %>%
-#  mutate(Freq = abs(Freq)) %>%
-#  arrange(desc(Freq)) %>%
-#  filter(Freq != 1) %>%
-#  filter(row_number() %%2 == 0) %>%
-#  rename(replace = c("Freq" = "Pearson"))
 
 ## CLASSIFICATION ####
 itnumber = 5
@@ -240,7 +227,7 @@ print(g)
 
 ## VERIFICATION ####
 no_best_features = which(stepwise_results$F1 == max(stepwise_results$F1))
-final_data = ml_data %>% select(stepwise_results$feature[1:no_best_features], class)
+final_data = ml_data %>% dplyr::select(stepwise_results$feature[1:no_best_features], class)
 x2=LogReg(final_data, folds)
 pred2=predict(x2$svm, ml_test_data) #predict on svm model
 cm2 = (confusionMatrix(pred2,ref))$table
@@ -269,14 +256,14 @@ xtable(cm)
 xtable(cm2)
 
 ## Arrows ####
-v1 = Boruta_results %>% filter(!grepl("shadow",Feature)) %>% select(Feature) %>% pull
-v2 = stepwise_results %>% select(feature) %>% pull
+v1 = Boruta_results %>% filter(!grepl("shadow",Feature)) %>% dplyr::select(Feature) %>% pull
+v2 = stepwise_results %>% dplyr::select(feature) %>% pull
 o <- 0.07
 DF <- data.frame(x = c(rep(1, length(v1)), rep(1.5, length(v2))),
                  x1 = c(rep(1 + o, length(v1)), rep(1.5 - o, length(v2))),
                  y = c(rev(seq_along(v1)), rev(seq_along(v2))),
                  g = c(v1, v2))
-differences = diff(as.matrix(spread(DF,g,y)))[,-c(1:2)] %>% data.frame(change = .) %>% rownames_to_column() %>% rename(g = rowname)
+differences = diff(as.matrix(spread(DF,g,y)))[,-c(1:2)] %>% data.frame(change = .) %>% rownames_to_column() %>% dplyr::rename(g = rowname)
 DF = join(DF, differences) %>% mutate(arr_color = ifelse(change > 0, "green", ifelse(change == 0, "yellow", "red")))
 library(ggplot2)
 library(grid)
