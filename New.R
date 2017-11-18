@@ -32,12 +32,6 @@ library(scales)
 library(xtable)
 #library(latticeExtra)
 source("utils.R")
-#source("mirna_features.R")
-#source("overhangcount.R")
-#source("loopscount.R")
-#source("LogReg.R")
-#source("BinEval.R")
-#source("multiplot.R")
 
 
 ## DATA PREPERATION ####
@@ -137,7 +131,7 @@ mirna_data %>%
                                                %>% filter(class == "Mirtron") 
                                                %>% select_if(is.numeric) , 2, FUN = median)) 
              %>% rownames_to_column(var = "name")) %>% 
-  inner_join(data.frame("Canonical median" = apply(mirna_data 
+  inner_join(data.frame("Canonical median" = aply(mirna_data 
                                                  %>% filter(class == "Canonical") %>% 
                                                    select_if(is.numeric) , 2, FUN = median)) %>% 
                rownames_to_column(var = "name")) %>%
@@ -220,12 +214,15 @@ print(Singlef)
 ## BORUTA ####
 Bor = Boruta(ml_data[,-(ncol(ml_data))],ml_data$class, getImp = getImpRfZ)
 par(pty = "m")
+par(cex.lab=1.2) 
+mar.default <- c(5,4,4,2) + 0.1
+par(mar = c(8,4,2,2))
 b = plot(Bor, xaxt = "n", xlab = "", yaxt = "n")
 axis(1, labels = FALSE, at = c(1:length(colnames(Bor$ImpHistory))))
 # Plot x labs at default x position
-text(x =  seq_along(colnames(Bor$ImpHistory)), y = par("usr")[3] - 2, srt = 45, adj = 1, cex = 0.7,
-     labels = names(lz), xpd = TRUE)
-axis(2, cex.axis=0.7, las = 1)
+#text(x =  seq_along(colnames(Bor$ImpHistory)), y = par("usr")[3] - 2, srt = 45, adj = 1, cex = 1.2,
+#     labels = names(lz), xpd = TRUE)
+axis(2, cex.axis=1.2, las = 1)
 
 
 Boruta_results = data_frame(Feature = colnames(Bor$ImpHistory), Means = colMeans(Bor$ImpHistory)) %>%
@@ -238,7 +235,7 @@ stepwise_results = stepwise(ml_data,folds)
 g = ggplot(stepwise_results, aes(x = feature, F1)) + 
   geom_point() +
   scale_x_discrete(limits = stepwise_results$feature) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) + theme(aspect.ratio = 0.4)
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) + theme(aspect.ratio = 0.6)
 print(g)
 
 ## VERIFICATION ####
