@@ -2,3 +2,5 @@
 .Rhistory
 .RDataTmp
 .directory
+.Rproj.user
+.RData
