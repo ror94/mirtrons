@@ -1,9 +1,9 @@
 rm(list = ls())
-if (Sys.info()[[1]]=="Windows"){
-  setwd("D:/BACKUP/Workspace/R/Mirtrons")
-} else{
-  setwd("~/Workspace/R/Mirtrons")
-}
+# if (Sys.info()[[1]]=="Windows"){
+#   setwd("D:/BACKUP/Workspace/R/Mirtrons")
+# } else{
+#   setwd("~/Workspace/R/Mirtrons")
+# }
 
 ## PACKAGES ####
 #source("https://bioconductor.org/biocLite.R")
@@ -34,6 +34,43 @@ library(xtable)
 source("utils.R")
 
 
+## IZMIR ANALYSIS ####
+library(tidyverse)
+library(caret)
+
+mirna_data = read.csv(file = "./Data/data.csv" , header = TRUE) %>% 
+  transmute(hairpin_name = as.character(hairpin_name), class = if_else(class, "Mirtron", "Canonical"))
+preds_data = read.csv(file = "./Data/preds.csv", header = TRUE) %>% 
+  mutate(hairpin_name = as.character(Accession)) %>% 
+  select(-Accession)
+
+joined_mirna = inner_join(mirna_data, preds_data, by = "hairpin_name")
+
+#classifiers_names = joined_mirna %>% select(NB_prediction, DT_prediction, avgNB, avgDT, ConsensusRule, ConsensusModel) %>% names
+classifiers_names = joined_mirna %>%  select(matches("[.]DT"), matches("[.]NB"), matches("DT_"), matches("NB_"),  
+                                             matches("avg"), matches("Consensus")) %>% names %>%  print
+
+tables = lapply(classifiers_names, 
+                function(x) {y = table(joined_mirna$class, joined_mirna[x] %>% pull %>% as.character())
+                #y = y[,c("miRNA", "negative")]})
+                prop.table(y,1)[,"miRNA"]})
+names(tables) = classifiers_names
+x = do.call(cbind.data.frame, tables)
+names(x) = classifiers_names
+z = as.data.frame(t(x)) %>% rownames_to_column()
+z$Type = c(rep("Decision Tree", 13), rep("Naive Bayes", 13), rep("Ensemble", 6))
+
+ggplot(z) + 
+  geom_point(aes(x = Canonical, y = Mirtron, fill = Type), size = 3.5, colour="black", pch=21) + 
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
+  geom_text_repel(data=z %>% filter(Type == "Ensemble"), aes(x=Canonical, y=Mirtron, label=rowname),
+                   size = 4, fontface = "bold", alpha = 1, segment.size = 0.5, nudge_x = 0.2) +
+  xlim(0.4,1) +
+  ylim(0.4,1) +
+  ylab("Sensitivity for mirtrons") +
+  xlab("Sensitivity for canonical miRNAs")
+
+
 ## DATA PREPERATION ####
 canonical_data = read.csv("./Data/data.csv", header=TRUE, stringsAsFactors = FALSE)
 canonical_data = tbl_df(canonical_data)
@@ -42,13 +79,23 @@ canonical_data %>%
   mutate(mirna_class = factor(class, labels = c('Canonical', 'Mirtron'))) %>%
   dplyr::select(-class) %>%
   mirna_features %>%
-  dplyr::select(-interarm3p, -interarm5p) -> mirna_data
+  dplyr::select(-interarm3p, -interarm5p)-> mirna_data
+
+
 
 test_mirna_data=read.csv("./Data/testdata.csv", header=TRUE, stringsAsFactors = FALSE)
 test_mirna_data %>% 
   mutate(mirna_class = factor("Mirtron")) %>%
   tibble::rownames_to_column() %>% 
-  mirna_features -> test_data
+  mirna_features %>% 
+  dplyr::select(-interarm3p, -interarm5p) -> test_data
+
+
+#validation_sample = sample(which(canonical_data$class == 0),200)
+#save(validation_sample, file = "validation.R")
+load(file = "validation.R")
+test_data = rbind(test_data, mirna_data[validation_sample,])
+mirna_data = mirna_data[-validation_sample,]
 
 ## PLOTS ####
 
@@ -68,7 +115,7 @@ pos = cbind(mirna_means[,1],tbl_df(apply(mirna_means[,-1], 2, function(x) c(ifel
                                                                             ifelse(x[2] > x[1], 0, 1)))))
 
 plot_histogram = function (data, name, means, pos){
-  g = ggplot(data = data, aes_string(name, fill = "class", color = "class")) + geom_histogram(alpha = 0.3, bins = 30) +
+  g = ggplot(data = data, aes_string(name, fill = "class", color = "class")) + geom_histogram(alpha = 0.5, bins = 30) +
   geom_vline(data = means, aes_string(xintercept=name, color="class"), linetype="dashed", size = 1.2)
   ymax = max((ggplot_build(g))$data[[1]]$y)
   g + geom_label(data = means, aes_string(x = means %>% 
@@ -88,7 +135,7 @@ plot_histogram = function (data, name, means, pos){
     #scale_color_brewer(palette="Dark2") + 
   theme_minimal()+theme(legend.position="top")
 }
-plot_histogram(data = mirna_data, means = mirna_means, name = "mature5p_A", pos)
+plot_histogram(data = mirna_data, means = mirna_means, name = "hairpin_length", pos)
 
 myplots <- lapply(mirna_means %>% 
                     select_if(is.numeric) %>% 
@@ -99,8 +146,8 @@ myplots <- lapply(mirna_means %>%
 #  select(mature5p_A, mature5p_C, mature5p_G, mature5p_U, class) %>% 
 #  rownames_to_column %>% gather("variable", "value", 2:5)
 
-#library(gridExtra)
-#do.call("grid.arrange", c(myplots, ncol=5))
+# library(gridExtra)
+# do.call("grid.arrange", c(myplots, ncol=5))
 
 ## STATISTICS ####
 #source('mirnaplots.R')
@@ -148,20 +195,25 @@ ml_data = mirna_data %>%
 pca_data = dplyr::select(ml_data, -class)
 pca=prcomp(pca_data, retx=TRUE, center=TRUE, scale=TRUE)
 labels=factor(mirna_data$class)
-grbiplot(pca, class = labels, scale_color_manual(values = c("#F8766D", "#619CFF")))
+grbiplot(pca, type = rep("Training", length(labels)), size = 2, shapes = 1, thickness = 1, class = labels, variances = (summary(pca))$importance[2,1:2],
+         scale_color_manual(values = c("#F8766D", "#619CFF")))
 
 
 ml_test_data = test_data %>%
-  dplyr::select(-c(contains("position"), contains("_U"), rowname, hairpin_name, interarm3p, interarm5p))
+  dplyr::select(-c(contains("position"), contains("_U"), rowname, hairpin_name)) # %>% 
+  #filter(class == "Mirtron") #, interarm3p, interarm5p))
 pca_test_data = dplyr::select(ml_test_data, -class)
 pca_test_data = bind_rows(pca_data, pca_test_data)
 pca2 = pca
 pca2$x = scale(pca_test_data, pca$center, pca$scale) %*% pca$rotation
-labels = factor(c(as.vector(mirna_data$class), rep('test',nrow(pca_test_data) - nrow(pca_data))))
-grbiplot(pca2, class = labels, scale_color_manual(values = c("#F8766D", "#619CFF", "#00BA38")))
+#labels = factor(c(as.vector(mirna_data$class), as.vector(paste("Test -", test_data$class)))) #, rep('test',nrow(pca_test_data) - nrow(pca_data))))
+labels1 = factor(c(as.vector(mirna_data$class), as.vector(test_data$class)))
+labels2 = factor(c(rep("Training", nrow(mirna_data)), rep("Validation", nrow(test_data))))
+grbiplot(pca2, class = labels1, type = labels2, size = 2, shapes = c(4, 1), thickness = 1, variances = (summary(pca))$importance[2,1:2],
+        scale_color_manual(values = c("#F8766D", "#619CFF")))#, "#00BA38", "#831791")))
 
 
-# 3d PCA
+#g 3d PCA
 library(rgl)
 colors = replace(as.vector(ml_data$class), with(ml_data, which(class == "Mirtron")), "blue")
 colors = replace(colors,which(colors != "blue"), "red")
@@ -181,8 +233,9 @@ cat("\n1x5-fold Cross-validation classification\n")
 x=LogReg(ml_data, folds)
 print(x$results)
 pred=predict(x$svm, ml_test_data) #predict on svm model
-ref = factor(c(rep("Mirtron",length(pred)), "Canonical"))[1:length(pred)]
-cm = (confusionMatrix(pred,ref))$table
+#ref = factor(c(rep("Mirtron",length(pred)), "Canonical"))[1:length(pred)]
+ref = test_data$class
+cm = confusionMatrix(pred,ref)
 print(mean(as.double(pred)-1))
 
 
@@ -203,13 +256,14 @@ Bor = Boruta(ml_data[,-(ncol(ml_data))],ml_data$class, getImp = getImpRfZ)
 par(pty = "m")
 par(cex.lab=1.2) 
 mar.default <- c(5,4,4,2) + 0.1
-par(mar = c(8,4,2,2))
+par(mar = c(8,4,2,2))Rplot
 b = plot(Bor, xaxt = "n", xlab = "", yaxt = "n")
 axis(1, labels = FALSE, at = c(1:length(colnames(Bor$ImpHistory))))
 # Plot x labs at default x position
-#text(x =  seq_along(colnames(Bor$ImpHistory)), y = par("usr")[3] - 2, srt = 45, adj = 1, cex = 1.2,
-#     labels = names(lz), xpd = TRUE)
+text(x =  seq_along(colnames(Bor$ImpHistory)), y = par("usr")[3] - 2, srt = 45, adj = 1, cex = 1.2,
+     labels = names(lz), xpd = TRUE)
 axis(2, cex.axis=1.2, las = 1)
+
 
 
 Boruta_results = data_frame(Feature = colnames(Bor$ImpHistory), Means = colMeans(Bor$ImpHistory)) %>%
@@ -220,9 +274,10 @@ stepwise_results = stepwise(ml_data,folds)
 
 
 g = ggplot(stepwise_results, aes(x = feature, F1)) + 
-  geom_point() +
+  geom_point(size = 4) +
   scale_x_discrete(limits = stepwise_results$feature) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) + theme(aspect.ratio = 0.6)
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 15),
+        axis.text.y = (element_text(size = 15))) + theme(aspect.ratio = 0.6, axis.title.x=element_blank())
 print(g)
 
 ## VERIFICATION ####
@@ -230,7 +285,7 @@ no_best_features = which(stepwise_results$F1 == max(stepwise_results$F1))
 final_data = ml_data %>% dplyr::select(stepwise_results$feature[1:no_best_features], class)
 x2=LogReg(final_data, folds)
 pred2=predict(x2$svm, ml_test_data) #predict on svm model
-cm2 = (confusionMatrix(pred2,ref))$table
+cm2 = confusionMatrix(pred2,ref)
 all = append(pred, ml_test_data$class)
 conf_mat = table(as.character(pred), test_data$class)
 accuracy = conf_mat[2] / sum(conf_mat)
@@ -243,8 +298,10 @@ print(Singlef, n = Inf)
 print(stepwise_results, n = Inf)
 print(Boruta_results, n = Inf)
 print(bind_cols(Boruta_results %>% filter(!grepl("shadow",Feature)), stepwise_results), n = Inf)
-print(cm)
-print(cm2)
+print(cm$table)
+print(cm$byClass[7])
+print(cm2$table)
+print(cm2$byClass[7])
 
 xtable(test_results ,digits=-5)
 xtable(x$results ,digits = 3)
@@ -252,8 +309,8 @@ xtable(Singlef, digits = 3)
 xtable(stepwise_results %>% select(-rowname), digits = 3)
 xtable(Boruta_results, digits = 3)
 xtable(x2$results ,digits= 3)
-xtable(cm)
-xtable(cm2)
+xtable(cm$table)
+xtable(cm2$table)
 
 ## Arrows ####
 v1 = Boruta_results %>% filter(!grepl("shadow",Feature)) %>% dplyr::select(Feature) %>% pull

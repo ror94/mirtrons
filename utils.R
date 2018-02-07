@@ -303,7 +303,9 @@ BinEval <-function (df){
   
   return(Results)
 }
-grbiplot <- function(PC, class, ...){
+grbiplot <- function(PC, class, type = NULL, size = 1, shapes = 1, thickness = 1, variances, ...){
+  #type = ifelse(is.null(type), rep(1,length(class)), type)
+  variances = round(variances*100,1)
   plot_data = data.frame(PC1 =PC$x[,1], PC2 = PC$x[,2], class = class)
   datapc <- data.frame(varnames=rownames(PC$rotation), PC$rotation)
   mult <- min(
@@ -318,12 +320,13 @@ grbiplot <- function(PC, class, ...){
   datapc$hjust = with(datapc, (1 - 1 * sign(v1))/2)
   
   g = ggplot(plot_data)+
-    geom_point(aes(x = PC1, y = PC2, color = class), size = 2)+
+    geom_point(aes(x = PC1, y = PC2, color = class, shape = type), size = size, stroke = thickness)+
     geom_text_repel(data=datapc, aes(x=v1, y=v2, label=varnames),#, angle = angle),
                     color=muted("red"), size = 5, alpha = 1, segment.size = 0.3)+
     geom_segment(data=datapc, aes(x=0, y=0, xend=v1, yend=v2), 
                  arrow=arrow(length=unit(0.2,"cm")), alpha=1, color=muted("red"), size = 0.6) +
-    theme(legend.justification=c(1,0), legend.position=c(1,0))+ ...
+    theme(legend.justification=c(1,0), legend.position=c(1,0)) + scale_shape_manual(values = shapes) +
+    xlab(paste0("PC1, Variance = ", variances[1],"%")) + ylab(paste0("PC2, Variance = ", variances[2], "%")) +...
   print(g)
 }
 stepwise <- function(ml_data, ...){
